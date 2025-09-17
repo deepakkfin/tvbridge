@@ -74,3 +74,56 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))  # Render provides PORT env var
     app.run(host="0.0.0.0", port=port, debug=False)
 
+from flask import request
+
+@app.route("/config")
+def config():
+    return jsonify({
+        "supports_search": True,
+        "supports_group_request": False,
+        "supports_marks": False,
+        "supports_timescale_marks": False,
+        "supports_time": True,
+        "supported_resolutions": ["D"]
+    })
+
+@app.route("/symbols")
+def symbols():
+    symbol = request.args.get("symbol", "").upper()
+    return jsonify({
+        "name": symbol,
+        "ticker": symbol,
+        "description": f"{symbol} Planet Longitude",
+        "type": "planet",
+        "session": "24x7",
+        "exchange": "Ephemeris",
+        "listed_exchange": "Ephemeris",
+        "timezone": "Etc/UTC",
+        "minmov": 1,
+        "pricescale": 100,
+        "has_intraday": False,
+        "supported_resolutions": ["D"],
+        "has_no_volume": True
+    })
+
+@app.route("/history")
+def history():
+    symbol = request.args.get("symbol", "").upper()
+    resolution = request.args.get("resolution", "D")
+    from_ts = int(request.args.get("from", "0"))
+    to_ts = int(request.args.get("to", "9999999999"))
+
+    df = planet_dataframe(symbol.capitalize())  # e.g. Earth → Earth.csv
+    df["time"] = pd.to_datetime(df["Date"]).astype("int64") // 10**9
+
+    df = df[(df["time"] >= from_ts) & (df["time"] <= to_ts)]
+
+    return jsonify({
+        "s": "ok",
+        "t": df["time"].tolist(),
+        "o": df["Open"].tolist(),
+        "h": df["High"].tolist(),
+        "l": df["Low"].tolist(),
+        "c": df["Close"].tolist()
+    })
+
